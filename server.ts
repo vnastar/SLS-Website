@@ -470,18 +470,19 @@ app.post('/api/system/test-db', (req, res) => {
 });
 
 app.post('/api/system/migrate-seed', (req, res) => {
-  const { adminName, adminEmail, adminPassword, dbName } = req.body;
+  const { adminUsername, adminName, adminEmail, adminPassword, dbName } = req.body;
 
+  const targetUsername = (adminUsername || 'admin').trim();
   const targetEmail = (adminEmail || 'admin@sls.vnastar.com').toLowerCase().trim();
   const targetPassword = (adminPassword || 'VNaStar@2026!').trim();
   const targetName = adminName || 'VNaStar Admin';
 
   // Find or create admin in usersList
-  let adminUser = usersList.find(u => u.username === 'admin' || u.email.toLowerCase() === targetEmail);
+  let adminUser = usersList.find(u => u.username === targetUsername || u.email.toLowerCase() === targetEmail || u.role === 'admin');
   if (!adminUser) {
     adminUser = {
       id: 'usr_admin',
-      username: 'admin',
+      username: targetUsername,
       name: targetName,
       email: targetEmail,
       password: targetPassword,
@@ -493,6 +494,7 @@ app.post('/api/system/migrate-seed', (req, res) => {
     };
     usersList.unshift(adminUser);
   } else {
+    adminUser.username = targetUsername;
     adminUser.name = targetName;
     adminUser.email = targetEmail;
     adminUser.password = targetPassword;
@@ -502,6 +504,7 @@ app.post('/api/system/migrate-seed', (req, res) => {
     adminUser.max_links = 100000;
   }
 
+  (systemConfig as any).adminUsername = targetUsername;
   systemConfig.adminName = targetName;
   systemConfig.adminEmail = targetEmail;
   systemConfig.adminPassword = targetPassword;

@@ -187,6 +187,7 @@ export function InstallerWizard({ onInstallationComplete }: { onInstallationComp
   };
 
   // Step 3 state
+  const [adminUsername, setAdminUsername] = useState('admin');
   const [adminName, setAdminName] = useState('VNaStar Admin');
   const [adminEmail, setAdminEmail] = useState('admin@sls.vnastar.com');
   const [adminPassword, setAdminPassword] = useState('VNaStar@2026!');
@@ -282,7 +283,7 @@ export function InstallerWizard({ onInstallationComplete }: { onInstallationComp
       `[OK] 2026_01_01_000001_create_users_table ............................. 12.4ms DONE`,
       `[OK] 2026_01_01_000002_create_short_links_table ....................... 18.2ms DONE`,
       `[OK] 2026_01_01_000003_create_click_logs_table ........................ 15.1ms DONE`,
-      `[SEED] Seeding Admin account: username='admin', email='${adminEmail || 'admin@sls.vnastar.com'}'...`,
+      `[SEED] Seeding Admin account: username='${adminUsername || 'admin'}', email='${adminEmail || 'admin@sls.vnastar.com'}'...`,
       `[OK] Admin account active in Database (users.json / DB table)`,
       `[SEED] Seeding default system settings & rate limit policies... DONE`
     ];
@@ -291,7 +292,7 @@ export function InstallerWizard({ onInstallationComplete }: { onInstallationComp
       const res = await fetch('/api/system/migrate-seed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminName, adminEmail, adminPassword, dbName, dbHost })
+        body: JSON.stringify({ adminUsername, adminName, adminEmail, adminPassword, dbName, dbHost })
       });
       let data: any = null;
       try {
@@ -558,33 +559,85 @@ jobs:
       {/* SUB TAB 1: INSTALLER WIZARD */}
       {subTab === 'wizard' && (
         <div className="space-y-6">
-          {/* Steps Progress Bar */}
-          <div className="grid grid-cols-5 gap-2 text-center text-xs font-semibold">
-            <div className={`p-2.5 rounded-xl border transition-all ${
-              currentStep >= 1 ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : 'bg-slate-900 border-slate-800 text-slate-500'
-            }`}>
-              1. Requirements
+          {/* Flexible Mode Banner */}
+          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Wrench className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                <strong className="text-white">Cài Đặt Unconstrained Mode:</strong> Bạn có thể nhấp chọn thực hiện riêng lẻ hoặc độc lập bất kỳ bước nào dưới đây mà không bắt buộc phải hoàn thành lần lượt theo thứ tự!
+              </span>
             </div>
-            <div className={`p-2.5 rounded-xl border transition-all ${
-              currentStep >= 2 ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : 'bg-slate-900 border-slate-800 text-slate-500'
-            }`}>
-              2. Database & Redis
-            </div>
-            <div className={`p-2.5 rounded-xl border transition-all ${
-              currentStep >= 3 ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : 'bg-slate-900 border-slate-800 text-slate-500'
-            }`}>
-              3. Seeders & Admin
-            </div>
-            <div className={`p-2.5 rounded-xl border transition-all ${
-              currentStep >= 4 ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : 'bg-slate-900 border-slate-800 text-slate-500'
-            }`}>
-              4. Key & Lock
-            </div>
-            <div className={`p-2.5 rounded-xl border transition-all ${
-              currentStep >= 5 ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500'
-            }`}>
-              5. Complete
-            </div>
+            <span className="hidden sm:inline-block px-2.5 py-1 bg-amber-500 text-slate-950 font-extrabold text-[10px] uppercase rounded-md tracking-wider shrink-0">
+              Chế Độ Tùy Chỉnh
+            </span>
+          </div>
+
+          {/* Interactive Steps Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setCurrentStep(1)}
+              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                currentStep === 1
+                  ? 'bg-amber-500 border-amber-400 text-slate-950 font-extrabold shadow-lg shadow-amber-500/20 scale-[1.02]'
+                  : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-amber-400'
+              }`}
+            >
+              <Server className="w-4 h-4" />
+              <span>1. Requirements</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrentStep(2)}
+              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                currentStep === 2
+                  ? 'bg-amber-500 border-amber-400 text-slate-950 font-extrabold shadow-lg shadow-amber-500/20 scale-[1.02]'
+                  : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-amber-400'
+              }`}
+            >
+              <Database className="w-4 h-4" />
+              <span>2. Database & Redis</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrentStep(3)}
+              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                currentStep === 3
+                  ? 'bg-amber-500 border-amber-400 text-slate-950 font-extrabold shadow-lg shadow-amber-500/20 scale-[1.02]'
+                  : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-amber-400'
+              }`}
+            >
+              <User className="w-4 h-4" />
+              <span>3. Account Admin</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrentStep(4)}
+              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                currentStep === 4
+                  ? 'bg-amber-500 border-amber-400 text-slate-950 font-extrabold shadow-lg shadow-amber-500/20 scale-[1.02]'
+                  : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-amber-400'
+              }`}
+            >
+              <Key className="w-4 h-4" />
+              <span>4. Key & Lock</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrentStep(5)}
+              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 col-span-2 sm:col-span-1 ${
+                currentStep === 5
+                  ? 'bg-emerald-500 border-emerald-400 text-slate-950 font-extrabold shadow-lg shadow-emerald-500/20 scale-[1.02]'
+                  : 'bg-slate-900 border-slate-800 text-emerald-400 hover:border-emerald-500/50'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>5. Complete</span>
+            </button>
           </div>
 
           {/* Step 1: Requirements Check */}
@@ -843,28 +896,39 @@ jobs:
                 onClick={() => setCurrentStep(3)}
                 className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 text-sm shadow cursor-pointer transition-all"
               >
-                Tiếp Tục Khởi Tạo Tài Khoản Admin & Migrations
+                Hoàn Tất Cấu Hình Database • Chuyển Sang Tạo Tài Khoản Admin
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           )}
 
-          {/* Step 3: Admin & Seeders */}
+          {/* Step 3: Account Admin */}
           {currentStep === 3 && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
               <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
                 <User className="w-4 h-4 text-amber-400" />
-                Bước 3: Khởi Tạo Tài Khoản Admin & Chạy Seeders CSDL Thực Tế
+                Bước 3: Khởi Tạo Tài Khoản Admin & Quyền Quản Trị Hệ Thống
               </h3>
 
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Hiển Thị Admin</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Đăng Nhập Admin (Username)</label>
+                  <input
+                    type="text"
+                    value={adminUsername}
+                    onChange={e => setAdminUsername(e.target.value)}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-amber-300 focus:border-amber-500 focus:outline-none"
+                    placeholder="admin"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Hiển Thị Admin (Full Name)</label>
                   <input
                     type="text"
                     value={adminName}
                     onChange={e => setAdminName(e.target.value)}
                     className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:border-amber-500 focus:outline-none"
+                    placeholder="VNaStar Admin"
                   />
                 </div>
                 <div>
@@ -894,7 +958,7 @@ jobs:
                 className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 text-sm shadow cursor-pointer transition-all"
               >
                 {isMigrating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Terminal className="w-4 h-4" />}
-                Thực Thi Khởi Tạo CSDL & Admin Account (`php artisan migrate:fresh --seed`)
+                Thực Thi Khởi Tạo Tài Khoản Admin & Dữ Liệu Ban Đầu (`php artisan db:seed --class=AdminSeeder`)
               </button>
 
               {/* Live Migration Terminal Output */}
@@ -912,12 +976,30 @@ jobs:
                 </div>
               )}
 
+              <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(2)}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl flex items-center gap-2 border border-slate-700 cursor-pointer transition-all"
+                >
+                  ← Quay lại Bước 2 (Database)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(4)}
+                  className="px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold text-xs rounded-xl flex items-center gap-2 border border-amber-500/30 cursor-pointer transition-all"
+                >
+                  Bỏ qua / Chuyển Sang Bước 4 (Key & Lock) →
+                </button>
+              </div>
+
               {migrationSuccess && (
                 <button
                   onClick={() => setCurrentStep(4)}
                   className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 text-sm shadow cursor-pointer transition-all"
                 >
-                  Migration Hoàn Hoàn Thành • Chuyển Sang Tạo APP_KEY & Lock File
+                  Migration Hoàn Thành • Chuyển Sang Tạo APP_KEY & Lock File
                   <ArrowRight className="w-4 h-4" />
                 </button>
               )}
@@ -939,6 +1021,24 @@ jobs:
                 <div className="text-amber-400">[OK] The [public/storage] link has been connected to [storage/app/public].</div>
                 <div>$ touch database/installed.lock</div>
                 <div className="text-emerald-400">[OK] File database/installed.lock created. System installation locked.</div>
+              </div>
+
+              <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(3)}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl flex items-center gap-2 border border-slate-700 cursor-pointer transition-all"
+                >
+                  ← Quay lại Bước 3 (Seeders & Admin)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(5)}
+                  className="px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold text-xs rounded-xl flex items-center gap-2 border border-amber-500/30 cursor-pointer transition-all"
+                >
+                  Chuyển Tới Bước 5 (Hoàn Tất) →
+                </button>
               </div>
 
               <button
