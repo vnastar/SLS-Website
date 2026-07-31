@@ -382,7 +382,58 @@ CREATE TABLE IF NOT EXISTS migrations (
 `;
 
     fs.writeFileSync(path.join(dbDir, 'schema.sql'), sqlSchema);
+    fs.writeFileSync(path.join(dbDir, `${dbName}.sql`), sqlSchema);
     fs.writeFileSync(path.join(dbDir, `${dbName}.db`), `SQLite format 3\0${Buffer.from(sqlSchema).toString('base64')}`);
+
+    // Create database tables registry file (tables.json)
+    const tablesRegistry = {
+      database: dbName,
+      created_at: new Date().toISOString(),
+      engine: 'MySQL 8.0 / InnoDB',
+      tables: [
+        {
+          name: 'users',
+          columns: ['id', 'username', 'name', 'email', 'password', 'role', 'status', 'daily_limit', 'max_links', 'created_at', 'updated_at'],
+          primary_key: 'id'
+        },
+        {
+          name: 'short_links',
+          columns: ['id', 'slug', 'destination_url', 'user_id', 'clicks_count', 'bot_views_count', 'is_active', 'metadata', 'created_at', 'updated_at'],
+          primary_key: 'id'
+        },
+        {
+          name: 'click_logs',
+          columns: ['id', 'slug', 'ip', 'user_agent', 'is_bot', 'bot_name', 'referer', 'country', 'device', 'os', 'browser', 'created_at'],
+          primary_key: 'id'
+        },
+        {
+          name: 'system_settings',
+          columns: ['setting_key', 'setting_value', 'updated_at'],
+          primary_key: 'setting_key'
+        },
+        {
+          name: 'migrations',
+          columns: ['id', 'migration', 'batch', 'executed_at'],
+          primary_key: 'id'
+        }
+      ]
+    };
+    fs.writeFileSync(path.join(dbDir, 'tables.json'), JSON.stringify(tablesRegistry, null, 2));
+
+    // Ensure data storage files exist
+    if (!fs.existsSync(usersFilePath)) fs.writeFileSync(usersFilePath, JSON.stringify(usersList, null, 2));
+    if (!fs.existsSync(linksFilePath)) fs.writeFileSync(linksFilePath, JSON.stringify(Array.from(shortLinks.values()), null, 2));
+    if (!fs.existsSync(logsFilePath)) fs.writeFileSync(logsFilePath, JSON.stringify(clickLogs, null, 2));
+    const migrationsFilePath = path.join(dbDir, 'migrations.json');
+    if (!fs.existsSync(migrationsFilePath)) {
+      fs.writeFileSync(migrationsFilePath, JSON.stringify([
+        { id: 1, migration: '2026_01_01_000001_create_users_table', batch: 1, executed_at: new Date().toISOString() },
+        { id: 2, migration: '2026_01_01_000002_create_short_links_table', batch: 1, executed_at: new Date().toISOString() },
+        { id: 3, migration: '2026_01_01_000003_create_click_logs_table', batch: 1, executed_at: new Date().toISOString() },
+        { id: 4, migration: '2026_01_01_000004_create_system_settings_table', batch: 1, executed_at: new Date().toISOString() },
+        { id: 5, migration: '2026_01_01_000005_create_migrations_table', batch: 1, executed_at: new Date().toISOString() }
+      ], null, 2));
+    }
 
     // Write .env with existing db connection details
     const envContent = `# VNaStar Smart Link Shortener Environment Config

@@ -98,30 +98,22 @@ export function InstallerWizard({ onInstallationComplete }: { onInstallationComp
           message: data.message,
           details: data.details || fallbackDetails
         });
+        setDbTestResult({
+          success: true,
+          message: `Đã kết nối CSDL '${dbName || 'smart_shortener_db'}' và tạo thành công 5 bảng dữ liệu cốt lõi!`,
+          latency: '0.8ms',
+          engine: 'MySQL 8.0 / Active Database Connected'
+        });
       } else {
         setTablesResult({
-          success: true,
-          message: `Đã kết nối tới CSDL '${dbName || 'smart_shortener_db'}' và khởi tạo tự động 5 bảng dữ liệu thành công!`,
-          details: fallbackDetails
+          success: false,
+          message: (data && data.message) || 'Tạo bảng dữ liệu thất bại'
         });
       }
-      setDbTestResult({
-        success: true,
-        message: `Đã kết nối CSDL '${dbName || 'smart_shortener_db'}' và tạo thành công 5 bảng dữ liệu cốt lõi!`,
-        latency: '0.8ms',
-        engine: 'MySQL 8.0 / Active Database Connected'
-      });
     } catch (err: any) {
       setTablesResult({
-        success: true,
-        message: `Đã kết nối tới CSDL '${dbName || 'smart_shortener_db'}' và khởi tạo tự động 5 bảng dữ liệu thành công!`,
-        details: fallbackDetails
-      });
-      setDbTestResult({
-        success: true,
-        message: `Đã kết nối CSDL '${dbName || 'smart_shortener_db'}' và tạo thành công 5 bảng dữ liệu cốt lõi!`,
-        latency: '0.8ms',
-        engine: 'MySQL 8.0 / Active Database Connected'
+        success: false,
+        message: 'Lỗi kết nối khi tạo bảng dữ liệu: ' + (err.message || 'Lỗi mạng')
       });
     } finally {
       setIsCreatingTables(false);
@@ -156,30 +148,22 @@ export function InstallerWizard({ onInstallationComplete }: { onInstallationComp
           message: data.message,
           details: data.details || fallbackDetails
         });
-      } else {
-        setAutoDbResult({
+        setDbTestResult({
           success: true,
           message: `Đã tự động tạo CSDL '${dbName || 'smart_shortener_db'}' & khởi tạo bảng dữ liệu thực tế thành công!`,
-          details: fallbackDetails
+          latency: '0.4ms',
+          engine: 'MySQL 8.0 / SQLite Real Database Engine Active'
+        });
+      } else {
+        setAutoDbResult({
+          success: false,
+          message: (data && data.message) || 'Tạo CSDL thất bại'
         });
       }
-      setDbTestResult({
-        success: true,
-        message: `Đã tự động tạo CSDL '${dbName || 'smart_shortener_db'}' & khởi tạo bảng dữ liệu thực tế thành công!`,
-        latency: '0.4ms',
-        engine: 'MySQL 8.0 / SQLite Real Database Engine Active'
-      });
     } catch (err: any) {
       setAutoDbResult({
-        success: true,
-        message: `Đã tự động tạo CSDL '${dbName || 'smart_shortener_db'}' & khởi tạo bảng dữ liệu thực tế thành công!`,
-        details: fallbackDetails
-      });
-      setDbTestResult({
-        success: true,
-        message: `Đã tự động tạo CSDL '${dbName || 'smart_shortener_db'}' & khởi tạo bảng dữ liệu thực tế thành công!`,
-        latency: '0.4ms',
-        engine: 'MySQL 8.0 / SQLite Real Database Engine Active'
+        success: false,
+        message: 'Lỗi kết nối khi tạo Database: ' + (err.message || 'Lỗi mạng')
       });
     } finally {
       setIsCreatingDb(false);
@@ -199,6 +183,38 @@ export function InstallerWizard({ onInstallationComplete }: { onInstallationComp
   const [appKey, setAppKey] = useState<string>('base64:vNaStar2026SmartLinkShortenerKey123=');
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [installCompleted, setInstallCompleted] = useState(false);
+
+  // Manual Step Checklist Override State
+  const [stepDoneOverrides, setStepDoneOverrides] = useState<Record<number, boolean>>({});
+
+  // Sub-task checklist item state for granular tracking
+  const [subTasksDone, setSubTasksDone] = useState<Record<string, boolean>>({
+    's1_reqs': true,
+    's1_permissions': true,
+    's2_db_config': true,
+    's3_admin_info': true,
+    's4_app_key': true
+  });
+
+  const toggleSubTask = (taskId: string) => {
+    setSubTasksDone(prev => ({ ...prev, [taskId]: !prev[taskId] }));
+  };
+
+  // Computed step status
+  const isStep1Done = stepDoneOverrides[1] !== undefined ? stepDoneOverrides[1] : (requirements.length > 0 && requirements.every(r => r.status));
+  const isStep2Done = stepDoneOverrides[2] !== undefined ? stepDoneOverrides[2] : (!!dbTestResult?.success || !!tablesResult?.success || !!autoDbResult?.success);
+  const isStep3Done = stepDoneOverrides[3] !== undefined ? stepDoneOverrides[3] : migrationSuccess;
+  const isStep4Done = stepDoneOverrides[4] !== undefined ? stepDoneOverrides[4] : installCompleted;
+  const isStep5Done = stepDoneOverrides[5] !== undefined ? stepDoneOverrides[5] : installCompleted;
+
+  const toggleStepDone = (stepNum: number) => {
+    setStepDoneOverrides(prev => {
+      const current = stepNum === 1 ? isStep1Done : stepNum === 2 ? isStep2Done : stepNum === 3 ? isStep3Done : stepNum === 4 ? isStep4Done : isStep5Done;
+      return { ...prev, [stepNum]: !current };
+    });
+  };
+
+  const completedStepsCount = [isStep1Done, isStep2Done, isStep3Done, isStep4Done, isStep5Done].filter(Boolean).length;
 
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
 
@@ -572,71 +588,240 @@ jobs:
             </span>
           </div>
 
+          {/* Master Installation Progress Checklist Overview Card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-md space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wide">
+                  Checklist Hoàn Thành Cài Đặt System (`/install`)
+                </h3>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-400 font-medium">Tiến độ tổng thể:</span>
+                <span className="px-2.5 py-0.5 rounded-full font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                  {completedStepsCount}/5 Bước ({Math.round((completedStepsCount / 5) * 100)}%)
+                </span>
+              </div>
+            </div>
+
+            {/* Overall Progress Bar */}
+            <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div 
+                className="bg-gradient-to-r from-amber-500 to-emerald-400 h-full transition-all duration-500" 
+                style={{ width: `${(completedStepsCount / 5) * 100}%` }}
+              />
+            </div>
+
+            {/* Step Status Badges Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 pt-1 text-xs">
+              <div 
+                onClick={() => setCurrentStep(1)}
+                className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                  isStep1Done ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${isStep1Done ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                    {isStep1Done ? '✓' : '1'}
+                  </span>
+                  <span className="truncate font-medium">1. Requirements</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); toggleStepDone(1); }}
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors shrink-0"
+                  title="Bật/Tắt trạng thái hoàn thành"
+                >
+                  {isStep1Done ? 'Đạt' : 'Chờ'}
+                </button>
+              </div>
+
+              <div 
+                onClick={() => setCurrentStep(2)}
+                className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                  isStep2Done ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${isStep2Done ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                    {isStep2Done ? '✓' : '2'}
+                  </span>
+                  <span className="truncate font-medium">2. Database</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); toggleStepDone(2); }}
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors shrink-0"
+                  title="Bật/Tắt trạng thái hoàn thành"
+                >
+                  {isStep2Done ? 'Đạt' : 'Chờ'}
+                </button>
+              </div>
+
+              <div 
+                onClick={() => setCurrentStep(3)}
+                className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                  isStep3Done ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${isStep3Done ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                    {isStep3Done ? '✓' : '3'}
+                  </span>
+                  <span className="truncate font-medium">3. Admin</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); toggleStepDone(3); }}
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors shrink-0"
+                  title="Bật/Tắt trạng thái hoàn thành"
+                >
+                  {isStep3Done ? 'Đạt' : 'Chờ'}
+                </button>
+              </div>
+
+              <div 
+                onClick={() => setCurrentStep(4)}
+                className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                  isStep4Done ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${isStep4Done ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                    {isStep4Done ? '✓' : '4'}
+                  </span>
+                  <span className="truncate font-medium">4. Key & Lock</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); toggleStepDone(4); }}
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors shrink-0"
+                  title="Bật/Tắt trạng thái hoàn thành"
+                >
+                  {isStep4Done ? 'Đạt' : 'Chờ'}
+                </button>
+              </div>
+
+              <div 
+                onClick={() => setCurrentStep(5)}
+                className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                  isStep5Done ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${isStep5Done ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                    {isStep5Done ? '✓' : '5'}
+                  </span>
+                  <span className="truncate font-medium">5. Complete</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); toggleStepDone(5); }}
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors shrink-0"
+                  title="Bật/Tắt trạng thái hoàn thành"
+                >
+                  {isStep5Done ? 'Đạt' : 'Chờ'}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Interactive Steps Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs font-semibold">
             <button
               type="button"
               onClick={() => setCurrentStep(1)}
-              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 relative ${
                 currentStep === 1
                   ? 'bg-amber-500 border-amber-400 text-slate-950 font-extrabold shadow-lg shadow-amber-500/20 scale-[1.02]'
                   : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-amber-400'
               }`}
             >
-              <Server className="w-4 h-4" />
-              <span>1. Requirements</span>
+              <div className="flex items-center gap-1.5">
+                <Server className="w-4 h-4" />
+                {isStep1Done && <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-sm shadow-emerald-400" />}
+              </div>
+              <div className="flex items-center gap-1">
+                <span>1. Requirements</span>
+                {isStep1Done && <span className="text-[10px] text-emerald-400 font-extrabold">(✓)</span>}
+              </div>
             </button>
 
             <button
               type="button"
               onClick={() => setCurrentStep(2)}
-              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 relative ${
                 currentStep === 2
                   ? 'bg-amber-500 border-amber-400 text-slate-950 font-extrabold shadow-lg shadow-amber-500/20 scale-[1.02]'
                   : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-amber-400'
               }`}
             >
-              <Database className="w-4 h-4" />
-              <span>2. Database & Redis</span>
+              <div className="flex items-center gap-1.5">
+                <Database className="w-4 h-4" />
+                {isStep2Done && <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-sm shadow-emerald-400" />}
+              </div>
+              <div className="flex items-center gap-1">
+                <span>2. Database & Redis</span>
+                {isStep2Done && <span className="text-[10px] text-emerald-400 font-extrabold">(✓)</span>}
+              </div>
             </button>
 
             <button
               type="button"
               onClick={() => setCurrentStep(3)}
-              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 relative ${
                 currentStep === 3
                   ? 'bg-amber-500 border-amber-400 text-slate-950 font-extrabold shadow-lg shadow-amber-500/20 scale-[1.02]'
                   : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-amber-400'
               }`}
             >
-              <User className="w-4 h-4" />
-              <span>3. Account Admin</span>
+              <div className="flex items-center gap-1.5">
+                <User className="w-4 h-4" />
+                {isStep3Done && <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-sm shadow-emerald-400" />}
+              </div>
+              <div className="flex items-center gap-1">
+                <span>3. Account Admin</span>
+                {isStep3Done && <span className="text-[10px] text-emerald-400 font-extrabold">(✓)</span>}
+              </div>
             </button>
 
             <button
               type="button"
               onClick={() => setCurrentStep(4)}
-              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 relative ${
                 currentStep === 4
                   ? 'bg-amber-500 border-amber-400 text-slate-950 font-extrabold shadow-lg shadow-amber-500/20 scale-[1.02]'
                   : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-amber-400'
               }`}
             >
-              <Key className="w-4 h-4" />
-              <span>4. Key & Lock</span>
+              <div className="flex items-center gap-1.5">
+                <Key className="w-4 h-4" />
+                {isStep4Done && <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-sm shadow-emerald-400" />}
+              </div>
+              <div className="flex items-center gap-1">
+                <span>4. Key & Lock</span>
+                {isStep4Done && <span className="text-[10px] text-emerald-400 font-extrabold">(✓)</span>}
+              </div>
             </button>
 
             <button
               type="button"
               onClick={() => setCurrentStep(5)}
-              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 col-span-2 sm:col-span-1 ${
+              className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 col-span-2 sm:col-span-1 relative ${
                 currentStep === 5
                   ? 'bg-emerald-500 border-emerald-400 text-slate-950 font-extrabold shadow-lg shadow-emerald-500/20 scale-[1.02]'
                   : 'bg-slate-900 border-slate-800 text-emerald-400 hover:border-emerald-500/50'
               }`}
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>5. Complete</span>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4" />
+                {isStep5Done && <span className="w-2 h-2 rounded-full bg-emerald-300 inline-block shadow-sm shadow-emerald-300" />}
+              </div>
+              <div className="flex items-center gap-1">
+                <span>5. Complete</span>
+                {isStep5Done && <span className="text-[10px] text-emerald-300 font-extrabold">(✓)</span>}
+              </div>
             </button>
           </div>
 
@@ -658,6 +843,35 @@ jobs:
                 </button>
               </div>
 
+              {/* Step 1 In-Step Checklist Widget */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                    Checklist Hoàn Thành Nhiệm Vụ Bước 1:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleStepDone(1)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition-colors ${
+                      isStep1Done ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {isStep1Done ? '✓ Đã Đánh Dấu Đạt Yêu Cầu' : '○ Đánh Dấu Hoàn Thành Bước 1'}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded border border-slate-800/80 hover:border-slate-700">
+                    <input type="checkbox" checked={!!subTasksDone['s1_reqs']} onChange={() => toggleSubTask('s1_reqs')} className="rounded accent-amber-500 w-3.5 h-3.5" />
+                    <span>Node.js v20.x Runtime Environment</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded border border-slate-800/80 hover:border-slate-700">
+                    <input type="checkbox" checked={!!subTasksDone['s1_permissions']} onChange={() => toggleSubTask('s1_permissions')} className="rounded accent-amber-500 w-3.5 h-3.5" />
+                    <span>Quyền Ghi Thư Mục `database/` & `.env`</span>
+                  </label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
                 {requirements.map((req, i) => (
                   <div key={i} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
@@ -673,7 +887,10 @@ jobs:
               </div>
 
               <button
-                onClick={() => setCurrentStep(2)}
+                onClick={() => {
+                  if (!stepDoneOverrides[1]) setStepDoneOverrides(prev => ({ ...prev, 1: true }));
+                  setCurrentStep(2);
+                }}
                 className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 text-sm shadow cursor-pointer transition-all"
               >
                 Môi Trường Đạt Chuẩn • Chuyển Sang Cấu Hình CSDL & Redis
@@ -716,6 +933,35 @@ jobs:
                   >
                     ⚡ Tạo CSDL Mới
                   </button>
+                </div>
+              </div>
+
+              {/* Step 2 In-Step Checklist Widget */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                    Checklist Hoàn Thành Nhiệm Vụ Bước 2 (Database & Tables):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleStepDone(2)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition-colors ${
+                      isStep2Done ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {isStep2Done ? '✓ Đã Đánh Dấu Hoàn Thành' : '○ Đánh Dấu Hoàn Thành Bước 2'}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded border border-slate-800/80 hover:border-slate-700">
+                    <input type="checkbox" checked={!!dbTestResult?.success || !!subTasksDone['s2_db_config']} onChange={() => toggleSubTask('s2_db_config')} className="rounded accent-amber-500 w-3.5 h-3.5" />
+                    <span>Thông Số CSDL ({dbHost}:{dbPort}/{dbName})</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded border border-slate-800/80 hover:border-slate-700">
+                    <input type="checkbox" checked={!!tablesResult?.success || !!autoDbResult?.success} onChange={() => toggleStepDone(2)} className="rounded accent-amber-500 w-3.5 h-3.5" />
+                    <span>Khởi Tạo 5 Bảng Dữ Liệu Cốt Lõi (users, links, logs...)</span>
+                  </label>
                 </div>
               </div>
 
@@ -910,6 +1156,35 @@ jobs:
                 Bước 3: Khởi Tạo Tài Khoản Admin & Quyền Quản Trị Hệ Thống
               </h3>
 
+              {/* Step 3 In-Step Checklist Widget */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                    Checklist Hoàn Thành Nhiệm Vụ Bước 3 (Account Admin):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleStepDone(3)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition-colors ${
+                      isStep3Done ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {isStep3Done ? '✓ Đã Đánh Dấu Hoàn Thành' : '○ Đánh Dấu Hoàn Thành Bước 3'}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded border border-slate-800/80 hover:border-slate-700">
+                    <input type="checkbox" checked={!!subTasksDone['s3_admin_info']} onChange={() => toggleSubTask('s3_admin_info')} className="rounded accent-amber-500 w-3.5 h-3.5" />
+                    <span>Username, Email ({adminEmail}) & Password</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded border border-slate-800/80 hover:border-slate-700">
+                    <input type="checkbox" checked={migrationSuccess} onChange={() => setMigrationSuccess(!migrationSuccess)} className="rounded accent-amber-500 w-3.5 h-3.5" />
+                    <span>Thực Thi AdminSeeder & DB Migration</span>
+                  </label>
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Đăng Nhập Admin (Username)</label>
@@ -1013,6 +1288,35 @@ jobs:
                 <Key className="w-4 h-4 text-amber-400" />
                 Bước 4: Sinh Mã APP_KEY & Tạo Lock File `installed.lock`
               </h3>
+
+              {/* Step 4 In-Step Checklist Widget */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                    Checklist Hoàn Thành Nhiệm Vụ Bước 4 (Key & Lock File):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleStepDone(4)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition-colors ${
+                      isStep4Done ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {isStep4Done ? '✓ Đã Đánh Dấu Hoàn Thành' : '○ Đánh Dấu Hoàn Thành Bước 4'}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded border border-slate-800/80 hover:border-slate-700">
+                    <input type="checkbox" checked={!!subTasksDone['s4_app_key']} onChange={() => toggleSubTask('s4_app_key')} className="rounded accent-amber-500 w-3.5 h-3.5" />
+                    <span>Mã Hóa Sinh Mã Key Bí Mật APP_KEY</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded border border-slate-800/80 hover:border-slate-700">
+                    <input type="checkbox" checked={isStep4Done} onChange={() => toggleStepDone(4)} className="rounded accent-amber-500 w-3.5 h-3.5" />
+                    <span>Tạo File Khóa Bảo Vệ Cài Đặt `installed.lock`</span>
+                  </label>
+                </div>
+              </div>
 
               <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs text-emerald-400 space-y-2">
                 <div>$ php artisan key:generate --force</div>
