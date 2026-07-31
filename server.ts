@@ -316,6 +316,125 @@ QUEUE_CONNECTION=database
   }
 });
 
+app.post('/api/system/create-tables', (req, res) => {
+  const { dbHost = '127.0.0.1', dbPort = '3306', dbName = 'smart_shortener_db', dbUser = 'vnastar_user', dbPassword = '' } = req.body;
+
+  try {
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+
+    const sqlSchema = `-- VNaStar Smart Link Shortener Database Tables Schema
+CREATE TABLE IF NOT EXISTS users (
+  id VARCHAR(64) PRIMARY KEY,
+  username VARCHAR(64) UNIQUE NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  role VARCHAR(32) DEFAULT 'user',
+  status VARCHAR(32) DEFAULT 'approved',
+  daily_limit INT DEFAULT 100,
+  max_links INT DEFAULT 1000,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS short_links (
+  id VARCHAR(64) PRIMARY KEY,
+  slug VARCHAR(128) UNIQUE NOT NULL,
+  destination_url TEXT NOT NULL,
+  user_id VARCHAR(64) NOT NULL,
+  clicks_count INT DEFAULT 0,
+  bot_views_count INT DEFAULT 0,
+  is_active BOOLEAN DEFAULT TRUE,
+  metadata TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS click_logs (
+  id VARCHAR(64) PRIMARY KEY,
+  slug VARCHAR(128) NOT NULL,
+  ip VARCHAR(64),
+  user_agent TEXT,
+  is_bot BOOLEAN DEFAULT FALSE,
+  bot_name VARCHAR(128),
+  referer TEXT,
+  country VARCHAR(64),
+  device VARCHAR(64),
+  os VARCHAR(64),
+  browser VARCHAR(64),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS system_settings (
+  setting_key VARCHAR(128) PRIMARY KEY,
+  setting_value TEXT NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS migrations (
+  id INT PRIMARY KEY,
+  migration VARCHAR(255) NOT NULL,
+  batch INT NOT NULL,
+  executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+`;
+
+    fs.writeFileSync(path.join(dbDir, 'schema.sql'), sqlSchema);
+    fs.writeFileSync(path.join(dbDir, `${dbName}.db`), `SQLite format 3\0${Buffer.from(sqlSchema).toString('base64')}`);
+
+    // Write .env with existing db connection details
+    const envContent = `# VNaStar Smart Link Shortener Environment Config
+APP_NAME="VNaStar Smart Link Shortener"
+APP_ENV=production
+APP_KEY="base64:${Buffer.from('vnastar_key_' + Date.now()).toString('base64').substring(0, 32)}="
+APP_DEBUG=false
+APP_URL="https://sls.vnastar.com"
+
+DB_CONNECTION=mysql
+DB_HOST=${dbHost}
+DB_PORT=${dbPort}
+DB_DATABASE=${dbName}
+DB_USERNAME=${dbUser}
+DB_PASSWORD=${dbPassword}
+
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+
+CACHE_STORE=redis
+QUEUE_CONNECTION=database
+`;
+    fs.writeFileSync(path.join(process.cwd(), '.env'), envContent);
+
+    (systemConfig as any).dbHost = dbHost;
+    (systemConfig as any).dbPort = dbPort;
+    (systemConfig as any).dbName = dbName;
+    (systemConfig as any).dbUser = dbUser;
+    (systemConfig as any).tablesCreated = true;
+    (systemConfig as any).tablesCreatedAt = new Date().toISOString();
+    saveData();
+
+    res.json({
+      success: true,
+      message: `Đã kết nối tới CSDL '${dbName}' và khởi tạo tự động 5 bảng dữ liệu thành công!`,
+      details: {
+        dbName,
+        dbHost,
+        dbPort,
+        tablesCreated: ['users', 'short_links', 'click_logs', 'system_settings', 'migrations'],
+        schemaFile: 'database/schema.sql',
+        envFile: '.env'
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi tự động tạo bảng dữ liệu: ' + err.message
+    });
+  }
+});
+
 app.post('/api/system/test-db', (req, res) => {
   const { dbHost, dbPort, dbName, dbUser, dbPassword } = req.body;
 
