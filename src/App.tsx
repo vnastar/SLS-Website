@@ -22,7 +22,18 @@ import { UserManager } from './components/UserManager';
 import { ShortLink } from './types';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'shortener' | 'dashboard' | 'crawler' | 'installer' | 'readme' | 'login' | 'users'>('readme');
+  const getInitialTab = () => {
+    const path = window.location.pathname.toLowerCase();
+    if (path === '/install' || path.startsWith('/install')) {
+      return 'installer';
+    }
+    if (path.includes('login')) {
+      return 'login';
+    }
+    return 'readme';
+  };
+
+  const [activeTab, setActiveTab] = useState<'shortener' | 'dashboard' | 'crawler' | 'installer' | 'readme' | 'login' | 'users'>(getInitialTab);
   const [links, setLinks] = useState<ShortLink[]>([]);
   const [isInstalled, setIsInstalled] = useState<boolean>(true);
   const [siteName, setSiteName] = useState('VNaStar Smart Link Shortener');
@@ -43,9 +54,6 @@ export default function App() {
           setActiveTab('installer');
         } else if (currentPath.includes('login')) {
           setActiveTab('login');
-        } else {
-          // Trang chủ mặc định hiển thị Mô tả các chức năng dự án
-          setActiveTab('readme');
         }
       }
     } catch (e) {
