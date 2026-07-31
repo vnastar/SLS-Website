@@ -4,9 +4,10 @@ import { LogIn, UserPlus, Lock, Mail, User, ShieldCheck, AlertCircle, CheckCircl
 interface LoginFormProps {
   onSuccessLogin: (user: { id?: string; name: string; email: string; username?: string; role?: string }) => void;
   siteName?: string;
+  noticeMessage?: string;
 }
 
-export function LoginForm({ onSuccessLogin, siteName = 'VNaStar Smart Link Shortener' }: LoginFormProps) {
+export function LoginForm({ onSuccessLogin, siteName = 'VNaStar Smart Link Shortener', noticeMessage }: LoginFormProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   
   // Login State
@@ -105,6 +106,13 @@ export function LoginForm({ onSuccessLogin, siteName = 'VNaStar Smart Link Short
           Cổng đăng nhập & Đăng ký tài khoản người dùng
         </p>
       </div>
+
+      {noticeMessage && (
+        <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs rounded-2xl flex items-center gap-2.5 leading-relaxed font-medium">
+          <Info className="w-5 h-5 flex-shrink-0 text-amber-400" />
+          <span>{noticeMessage}</span>
+        </div>
+      )}
 
       {/* Mode Selector Tabs */}
       <div className="grid grid-cols-2 p-1 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-semibold">

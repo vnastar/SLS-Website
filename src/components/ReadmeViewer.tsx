@@ -21,38 +21,40 @@ import {
 
 interface ReadmeViewerProps {
   isInstalled: boolean;
+  isLoggedIn?: boolean;
   onGoToInstall: () => void;
   onGoToLogin: () => void;
+  onGoToShortener?: () => void;
 }
 
-export function ReadmeViewer({ isInstalled, onGoToInstall, onGoToLogin }: ReadmeViewerProps) {
+export function ReadmeViewer({ isInstalled, isLoggedIn, onGoToInstall, onGoToLogin, onGoToShortener }: ReadmeViewerProps) {
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-16">
-      {/* Top Welcome / Status Alert Banner */}
-      {!isInstalled ? (
-        <div className="bg-gradient-to-r from-amber-500/20 via-slate-900 to-amber-500/10 border-2 border-amber-500/60 rounded-3xl p-6 sm:p-8 text-white shadow-2xl relative overflow-hidden">
+      {/* Top Hero Banner */}
+      {!isLoggedIn ? (
+        <div className="bg-gradient-to-r from-amber-500/20 via-slate-900 to-amber-500/10 border-2 border-amber-500/50 rounded-3xl p-6 sm:p-8 text-white shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 -mt-8 -mr-8 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
           
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold uppercase tracking-wider">
-                <Wrench className="w-3.5 h-3.5" />
-                Khởi Tạo Lần Đầu — Chưa Cài Đặt
+                <Sparkles className="w-3.5 h-3.5" />
+                VNaStar Smart Link Shortener & OG Metadata Platform
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100">
-                Chào Mừng Bạn Đến Với VNaStar Smart Link Shortener!
+                Hệ Thống Rút Gọn Link Thông Minh & Tùy Chỉnh Open Graph
               </h1>
               <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
-                Hệ thống đang ở trạng thái ban đầu và chưa được cài đặt tài khoản Admin hay cấu hình CSDL. Bạn có thể xem tài liệu hướng dẫn bên dưới, hoặc truy cập ngay đường dẫn <code className="bg-slate-800 text-amber-300 font-mono px-2 py-0.5 rounded border border-slate-700">/install</code> để bắt đầu quy trình cài đặt tự động.
+                Trang chủ tổng quan mô tả đầy đủ tất cả các tính năng của dự án. Vui lòng đăng nhập tài khoản người dùng hoặc Admin để bắt đầu sử dụng toàn bộ công cụ rút gọn link, AI Gemini, thống kê lượt nhấp và giả lập crawler.
               </p>
             </div>
 
             <button
-              onClick={onGoToInstall}
+              onClick={onGoToLogin}
               className="w-full md:w-auto px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold rounded-2xl flex items-center justify-center gap-3 text-sm shadow-xl shadow-amber-500/20 hover:scale-105 transition-all cursor-pointer whitespace-nowrap shrink-0"
             >
-              <Wrench className="w-5 h-5" />
-              Bắt Đầu Cài Đặt Ngay (/install)
+              <LogIn className="w-5 h-5" />
+              Đăng Nhập Để Trải Nghiệm Ngay
             </button>
           </div>
         </div>
@@ -61,20 +63,20 @@ export function ReadmeViewer({ isInstalled, onGoToInstall, onGoToLogin }: Readme
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
               <CheckCircle2 className="w-4 h-4" />
-              Hệ Thống Đã Được Cài Đặt
+              Bạn Đã Đăng Nhập
             </div>
-            <h2 className="text-xl font-bold">VNaStar Smart Link Shortener Sẵn Sàng</h2>
+            <h2 className="text-xl font-bold">Chào Mừng Quản Trị Viên VNaStar</h2>
             <p className="text-xs text-slate-300">
-              Bạn có thể đăng nhập tài khoản Quản trị viên để quản lý liên kết, chỉnh sửa Open Graph Metadata và theo dõi báo cáo.
+              Tài khoản của bạn có đầy đủ quyền truy cập tính năng Rút Gọn Link, Open Graph Editor, Analytics và Crawler Simulator.
             </p>
           </div>
 
           <button
-            onClick={onGoToLogin}
-            className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2 shadow-lg hover:scale-105 transition-all cursor-pointer shrink-0"
+            onClick={onGoToShortener || onGoToLogin}
+            className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl flex items-center gap-2 shadow-lg hover:scale-105 transition-all cursor-pointer shrink-0"
           >
-            <LogIn className="w-4 h-4" />
-            Đăng Nhập Ngay
+            <LinkIcon className="w-4 h-4" />
+            Vào Sử Dụng Rút Gọn Link
           </button>
         </div>
       )}
