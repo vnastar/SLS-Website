@@ -1,0 +1,8 @@
+{
+  "name": "SLS Website",
+  "description": "Hệ thống rút gọn link nâng cao với tùy chỉnh Open Graph Metadata \u0026 Twitter Cards thuộc bản quyền VNaStar Media",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

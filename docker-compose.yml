@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  # Laravel App & Webserver
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vnastar_app
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    environment:
+      APP_NAME: "Smart Link Shortener"
+      APP_ENV: production
+      APP_KEY: base64:vNaStar2026SmartLinkShortenerKey123=
+      APP_DEBUG: "false"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: smart_shortener
+      DB_USERNAME: shortener_user
+      DB_PASSWORD: shortener_password_2026
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+    volumes:
+      - .:/var/www/html
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    depends_on:
+      - db
+      - redis
+    networks:
+      - vnastar_network
+
+  # Redis Cache & Horizon Queue Service
+  redis:
+    image: redis:7.2-alpine
+    container_name: vnastar_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - vnastar_network
+
+  # MySQL Database Service
+  db:
+    image: mysql:8.0
+    container_name: vnastar_db
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: smart_shortener
+      MYSQL_USER: shortener_user
+      MYSQL_PASSWORD: shortener_password_2026
+      MYSQL_ROOT_PASSWORD: root_secret_password_2026
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - vnastar_network
+
+  # Laravel Horizon Queue Worker Service
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vnastar_worker
+    restart: unless-stopped
+    command: php artisan horizon
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - app
+      - redis
+    networks:
+      - vnastar_network
+
+networks:
+  vnastar_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
