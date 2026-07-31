@@ -39,13 +39,8 @@ export default function App() {
         if (data.siteName) setSiteName(data.siteName);
 
         const currentPath = window.location.pathname.toLowerCase();
-        if (currentPath.includes('install')) {
-          if (data.installed && currentUser) {
-            window.history.replaceState({}, '', '/');
-            setActiveTab('shortener');
-          } else {
-            setActiveTab('readme');
-          }
+        if (currentPath === '/install' || currentPath.startsWith('/install')) {
+          setActiveTab('installer');
         } else if (currentPath.includes('login')) {
           setActiveTab('login');
         } else {
@@ -77,13 +72,8 @@ export default function App() {
 
     const handleLocationChange = () => {
       const path = window.location.pathname.toLowerCase();
-      if (path.includes('install')) {
-        if (isInstalled && currentUser) {
-          window.history.replaceState({}, '', '/');
-          setActiveTab('shortener');
-        } else {
-          setActiveTab('readme');
-        }
+      if (path === '/install' || path.startsWith('/install')) {
+        setActiveTab('installer');
       } else if (path.includes('login')) {
         setActiveTab('login');
       }
@@ -205,32 +195,6 @@ export default function App() {
                 Giả Lập Crawler
                 {!currentUser && <Lock className="w-3 h-3 text-amber-400/70" />}
               </button>
-
-              <button
-                onClick={() => handleTabClick('users', 'Duyệt Users')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                  activeTab === 'users'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-lg shadow-amber-500/20'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                Duyệt Users
-                {!currentUser && <Lock className="w-3 h-3 text-amber-400/70" />}
-              </button>
-
-              <button
-                onClick={() => handleTabClick('installer', 'Cài Đặt Hệ Thống')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                  activeTab === 'installer'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-lg shadow-amber-500/20'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <Wrench className="w-4 h-4 text-amber-400" />
-                Cài Đặt (/install)
-                {!currentUser && <Lock className="w-3 h-3 text-amber-400/70" />}
-              </button>
             </nav>
 
             {/* Auth / Login Button */}
@@ -291,18 +255,6 @@ export default function App() {
             >
               Giả Lập Crawler {!currentUser && '🔒'}
             </button>
-            <button
-              onClick={() => handleTabClick('users', 'Duyệt Users')}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap ${activeTab === 'users' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400'}`}
-            >
-              Duyệt Users {!currentUser && '🔒'}
-            </button>
-            <button
-              onClick={() => handleTabClick('installer', 'Cài Đặt')}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap ${activeTab === 'installer' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400'}`}
-            >
-              Cài Đặt {!currentUser && '🔒'}
-            </button>
           </div>
         </div>
       </header>
@@ -314,7 +266,10 @@ export default function App() {
           <ReadmeViewer
             isInstalled={isInstalled}
             isLoggedIn={!!currentUser}
-            onGoToInstall={() => handleTabClick('installer', 'Cài Đặt Hệ Thống')}
+            onGoToInstall={() => {
+              window.history.pushState({}, '', '/install');
+              setActiveTab('installer');
+            }}
             onGoToLogin={() => handleTabClick('login', 'Đăng Nhập')}
             onGoToShortener={() => handleTabClick('shortener', 'Rút Gọn Link & OG')}
           />
@@ -329,25 +284,14 @@ export default function App() {
           />
         )}
 
-        {/* Các tính năng yêu cầu đăng nhập */}
-        {activeTab === 'users' && (
-          currentUser ? (
-            <UserManager />
-          ) : (
-            <RequireLoginCard tabName="Quản Lý Người Dùng" onLogin={() => handleTabClick('login', 'Duyệt Users')} />
-          )
-        )}
-
         {activeTab === 'installer' && (
-          currentUser ? (
-            <InstallerWizard
-              onInstallationComplete={() => {
-                setIsInstalled(true);
-              }}
-            />
-          ) : (
-            <RequireLoginCard tabName="Cài Đặt Hệ Thống (/install)" onLogin={() => handleTabClick('login', 'Cài Đặt')} />
-          )
+          <InstallerWizard
+            onInstallationComplete={() => {
+              setIsInstalled(true);
+              window.history.pushState({}, '', '/');
+              setActiveTab('readme');
+            }}
+          />
         )}
 
         {activeTab === 'shortener' && (

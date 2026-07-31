@@ -342,8 +342,48 @@ app.get('/api/admin/users', (req, res) => {
       email: u.email,
       role: u.role,
       status: u.status,
+      daily_limit: u.daily_limit !== undefined ? u.daily_limit : (u.role === 'admin' ? 10000 : 50),
+      max_links: u.max_links !== undefined ? u.max_links : (u.role === 'admin' ? 100000 : 500),
       created_at: u.created_at
     }))
+  });
+});
+
+app.post('/api/admin/users/create', (req, res) => {
+  const { name, username, email, password, role, status, daily_limit, max_links } = req.body;
+
+  if (!username || !email || !password) {
+    return res.status(400).json({ success: false, message: 'Vui lòng nhập đầy đủ tên đăng nhập, email và mật khẩu!' });
+  }
+
+  const normUsername = String(username).toLowerCase().trim();
+  const normEmail = String(email).toLowerCase().trim();
+
+  const existingUser = usersList.find(u => u.username.toLowerCase() === normUsername || u.email.toLowerCase() === normEmail);
+  if (existingUser) {
+    return res.status(400).json({ success: false, message: 'Tên đăng nhập hoặc Email đã tồn tại trên hệ thống!' });
+  }
+
+  const newUser = {
+    id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    username: normUsername,
+    name: name || normUsername,
+    email: normEmail,
+    password: password.trim(),
+    role: role || 'user',
+    status: status || 'approved',
+    daily_limit: daily_limit !== undefined ? Number(daily_limit) : (role === 'admin' ? 10000 : 50),
+    max_links: max_links !== undefined ? Number(max_links) : (role === 'admin' ? 100000 : 500),
+    created_at: new Date().toISOString()
+  };
+
+  usersList.unshift(newUser);
+  saveData();
+
+  res.json({
+    success: true,
+    message: `Đã tạo tài khoản thành công cho user "${newUser.username}"!`,
+    user: newUser
   });
 });
 
@@ -394,6 +434,49 @@ app.post('/api/admin/users/delete', (req, res) => {
   res.json({
     success: true,
     message: `Đã xóa người dùng "${deleted.username}".`
+  });
+});
+
+app.post('/api/admin/users/update', (req, res) => {
+  const { userId, name, username, email, password, role, status, daily_limit, max_links } = req.body;
+  const user = usersList.find(u => u.id === userId);
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng!' });
+  }
+
+  // Check unique username if changed
+  if (username && username.toLowerCase() !== user.username.toLowerCase()) {
+    const normUsername = String(username).toLowerCase().trim();
+    const existing = usersList.find(u => u.username.toLowerCase() === normUsername && u.id !== userId);
+    if (existing) {
+      return res.status(400).json({ success: false, message: `Tên user "${normUsername}" đã được sử dụng!` });
+    }
+    user.username = normUsername;
+  }
+
+  // Check unique email if changed
+  if (email && email.toLowerCase() !== user.email.toLowerCase()) {
+    const normEmail = String(email).toLowerCase().trim();
+    const existing = usersList.find(u => u.email.toLowerCase() === normEmail && u.id !== userId);
+    if (existing) {
+      return res.status(400).json({ success: false, message: `Email "${normEmail}" đã tồn tại trên hệ thống!` });
+    }
+    user.email = normEmail;
+  }
+
+  if (name) user.name = name;
+  if (role) user.role = role;
+  if (status) user.status = status;
+  if (password && password.trim()) user.password = password.trim();
+  if (daily_limit !== undefined) user.daily_limit = Number(daily_limit);
+  if (max_links !== undefined) user.max_links = Number(max_links);
+
+  saveData();
+
+  res.json({
+    success: true,
+    message: `Đã cập nhật thành công thông tin tài khoản "${user.username}"!`,
+    user
   });
 });
 
