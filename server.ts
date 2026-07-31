@@ -467,6 +467,149 @@ app.put('/api/links/:slug', (req, res) => {
   res.json(link);
 });
 
+// Delete short link
+app.delete('/api/links/:slug', (req, res) => {
+  const { slug } = req.params;
+  if (!shortLinks.has(slug)) {
+    return res.status(404).json({ error: 'Link không tồn tại' });
+  }
+  shortLinks.delete(slug);
+  saveData();
+  res.json({ success: true, message: `Đã xóa thành công link /r/${slug}` });
+});
+
+// Toggle short link active status
+app.patch('/api/links/:slug/toggle', (req, res) => {
+  const { slug } = req.params;
+  const link = shortLinks.get(slug);
+  if (!link) {
+    return res.status(404).json({ error: 'Link không tồn tại' });
+  }
+  link.is_active = !link.is_active;
+  shortLinks.set(slug, link);
+  saveData();
+  res.json({ success: true, link });
+});
+
+// Auto-scrape Open Graph metadata from destination URL
+app.post('/api/scrape-metadata', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url || typeof url !== 'string' || !url.startsWith('http')) {
+      return res.status(400).json({ success: false, error: 'URL không hợp lệ. Vui lòng nhập link bắt đầu bằng http:// hoặc https://' });
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7'
+      }
+    });
+    clearTimeout(timeout);
+
+    const html = await response.text();
+
+    const getMeta = (propertyOrName: string) => {
+      const regex1 = new RegExp(`<meta\\s+[^>]*?(?:property|name)=["']${propertyOrName}["']\\s+[^>]*?content=["']([^"']*)["']`, 'i');
+      const regex2 = new RegExp(`<meta\\s+[^>]*?content=["']([^"']*)["']\\s+[^>]*?(?:property|name)=["']${propertyOrName}["']`, 'i');
+      const m1 = html.match(regex1);
+      if (m1) return m1[1];
+      const m2 = html.match(regex2);
+      if (m2) return m2[1];
+      return '';
+    };
+
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const rawTitle = titleMatch ? titleMatch[1].trim() : '';
+
+    const ogTitle = getMeta('og:title') || rawTitle || 'Trang Web';
+    const ogDescription = getMeta('og:description') || getMeta('description') || '';
+    const ogImage = getMeta('og:image') || getMeta('twitter:image') || '';
+    const ogSiteName = getMeta('og:site_name') || '';
+    const keywords = getMeta('keywords') || '';
+    const author = getMeta('author') || '';
+
+    return res.json({
+      success: true,
+      metadata: {
+        og_title: ogTitle,
+        og_description: ogDescription,
+        og_image: ogImage,
+        og_site_name: ogSiteName,
+        keywords,
+        author,
+        canonical_url: url
+      }
+    });
+  } catch (err: any) {
+    console.error('Error scraping metadata:', err);
+    return res.status(500).json({
+      success: false,
+      error: 'Không thể tự động tải thẻ Meta từ website này. Bạn có thể điền thông tin thủ công.'
+    });
+  }
+});
+
+// Gemini AI Metadata Generator & Enhancer
+app.post('/api/ai/enhance-metadata', async (req, res) => {
+  try {
+    const { destination_url, title, description } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return res.status(400).json({
+        success: false,
+        error: 'Chưa cấu hình GEMINI_API_KEY trong hệ thống'
+      });
+    }
+
+    const { GoogleGenAI } = await import('@google/genai');
+    const ai = new GoogleGenAI({ apiKey });
+
+    const prompt = `Bạn là chuyên gia SEO & Social Media Marketing hàng đầu của VNaStar Media.
+Hãy tối ưu Open Graph Metadata thu hút lượt click (high CTR) nhất cho đường link sau:
+- URL gốc: ${destination_url || 'N/A'}
+- Tiêu đề hiện tại: ${title || 'Chưa có'}
+- Mô tả hiện tại: ${description || 'Chưa có'}
+
+Yêu cầu trả về JSON chuẩn duy nhất (không bọc trong markdown code block khác):
+{
+  "og_title": "Tiêu đề hấp dẫn, gây tò mò giật gân (dưới 65 ký tự, có emoji)",
+  "og_description": "Mô tả truyền thông thôi thúc click xem ngay (120-160 ký tự)",
+  "keywords": "từ khóa 1, từ khóa 2, từ khóa 3, VNaStar Media",
+  "twitter_title": "Tiêu đề Twitter hấp dẫn",
+  "twitter_description": "Mô tả ngắn gọn Twitter"
+}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json'
+      }
+    });
+
+    const responseText = response.text || '{}';
+    const jsonResult = JSON.parse(responseText);
+
+    return res.json({
+      success: true,
+      metadata: jsonResult
+    });
+  } catch (err: any) {
+    console.error('AI generation error:', err);
+    return res.status(500).json({
+      success: false,
+      error: 'Không thể tạo nội dung bằng AI. Vui lòng kiểm tra lại GEMINI_API_KEY hoặc thử lại.'
+    });
+  }
+});
+
 // Simulated crawler/redirect endpoint
 app.get('/r/:slug', (req, res) => {
   const { slug } = req.params;

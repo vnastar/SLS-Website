@@ -2,46 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { 
   Link as LinkIcon, 
   Bot, 
-  FolderTree, 
   BarChart3, 
   Wrench, 
-  ShieldCheck, 
-  Globe, 
-  Sparkles, 
-  ExternalLink,
-  ChevronRight,
-  Layers,
-  Zap,
-  Server,
-  Database,
   BookOpen,
   LogIn,
   LogOut,
   UserCheck,
   Users
 } from 'lucide-react';
-import { Step1Blueprint } from './components/Step1Blueprint';
 import { LinkGeneratorOG } from './components/LinkGeneratorOG';
 import { CrawlerSimulator } from './components/CrawlerSimulator';
 import { DashboardOverview } from './components/DashboardOverview';
 import { InstallerWizard } from './components/InstallerWizard';
-import { DatabaseSchemaInspector } from './components/DatabaseSchemaInspector';
-import { CoreServiceInspector } from './components/CoreServiceInspector';
-import { ControllersRepositoriesInspector } from './components/ControllersRepositoriesInspector';
-import { FrontendBladeInspector } from './components/FrontendBladeInspector';
-import { AuthTestingInspector } from './components/AuthTestingInspector';
 import { ReadmeViewer } from './components/ReadmeViewer';
 import { LoginForm } from './components/LoginForm';
 import { UserManager } from './components/UserManager';
 import { ShortLink } from './types';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'shortener' | 'dashboard' | 'crawler' | 'installer' | 'readme' | 'login' | 'users' | 'blueprint' | 'schema' | 'coreservice' | 'controllers' | 'frontend' | 'authtesting'>('readme');
-  const [showSpecsMenu, setShowSpecsMenu] = useState(false);
+  const [activeTab, setActiveTab] = useState<'shortener' | 'dashboard' | 'crawler' | 'installer' | 'readme' | 'login' | 'users'>('shortener');
   const [links, setLinks] = useState<ShortLink[]>([]);
-  const [isInstalled, setIsInstalled] = useState<boolean>(false);
+  const [isInstalled, setIsInstalled] = useState<boolean>(true);
   const [siteName, setSiteName] = useState('VNaStar Smart Link Shortener');
-  const [currentUser, setCurrentUser] = useState<{ id?: string; name: string; email: string; username?: string; role?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id?: string; name: string; email: string; username?: string; role?: string } | null>({
+    name: 'VNaStar Admin',
+    email: 'admin@sls.vnastar.com',
+    role: 'admin'
+  });
 
   // Check installation status & current user
   const checkSystemStatus = async () => {
@@ -55,7 +42,6 @@ export default function App() {
         const currentPath = window.location.pathname.toLowerCase();
         if (currentPath.includes('install')) {
           if (data.installed) {
-            // Đã cài đặt thành công -> Tự động chuyển hướng về trang chủ
             window.history.replaceState({}, '', '/');
             setActiveTab('shortener');
           } else {
@@ -64,7 +50,7 @@ export default function App() {
         } else if (currentPath.includes('login')) {
           setActiveTab('login');
         } else if (!data.installed) {
-          setActiveTab('readme');
+          setActiveTab('installer');
         } else {
           setActiveTab('shortener');
         }
@@ -151,40 +137,6 @@ export default function App() {
             {/* Main Tabs Navigation */}
             <nav className="hidden lg:flex items-center gap-1.5">
               <button
-                onClick={() => setActiveTab('readme')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                  activeTab === 'readme'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-lg shadow-amber-500/20'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <BookOpen className="w-4 h-4" />
-                Hướng Dẫn (README)
-              </button>
-
-              <button
-                onClick={() => {
-                  if (isInstalled) {
-                    window.history.replaceState({}, '', '/');
-                    setActiveTab('shortener');
-                  } else {
-                    if (window.location.pathname !== '/install') {
-                      window.history.pushState({}, '', '/install');
-                    }
-                    setActiveTab('installer');
-                  }
-                }}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                  activeTab === 'installer'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-lg shadow-amber-500/20'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <Wrench className="w-4 h-4 text-amber-400" />
-                Cài Đặt (/install)
-              </button>
-
-              <button
                 onClick={() => setActiveTab('shortener')}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
                   activeTab === 'shortener'
@@ -232,68 +184,40 @@ export default function App() {
                 Duyệt Users
               </button>
 
-              {/* Specs & Architecture Dropdown */}
-              <div className="relative ml-2 border-l border-slate-800 pl-2">
-                <button
-                  onClick={() => setShowSpecsMenu(!showSpecsMenu)}
-                  className={`px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
-                    isSpecTab
-                      ? 'bg-slate-800 text-amber-400 font-semibold border border-amber-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80'
-                  }`}
-                >
-                  <FolderTree className="w-3.5 h-3.5" />
-                  Specs Kiến Trúc
-                  <ChevronRight className={`w-3 h-3 transition-transform ${showSpecsMenu ? 'rotate-90' : ''}`} />
-                </button>
+              <button
+                onClick={() => {
+                  if (isInstalled) {
+                    window.history.replaceState({}, '', '/');
+                    setActiveTab('shortener');
+                  } else {
+                    if (window.location.pathname !== '/install') {
+                      window.history.pushState({}, '', '/install');
+                    }
+                    setActiveTab('installer');
+                  }
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                  activeTab === 'installer'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-lg shadow-amber-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Wrench className="w-4 h-4 text-amber-400" />
+                Cài Đặt (/install)
+              </button>
 
-                {showSpecsMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-1.5 z-50 text-xs space-y-0.5">
-                    <button
-                      onClick={() => { setActiveTab('blueprint'); setShowSpecsMenu(false); }}
-                      className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 ${activeTab === 'blueprint' ? 'bg-amber-500/20 text-amber-300 font-bold' : 'text-slate-300 hover:bg-slate-800'}`}
-                    >
-                      <FolderTree className="w-3.5 h-3.5 text-amber-400" />
-                      Step 1: System Blueprint
-                    </button>
-                    <button
-                      onClick={() => { setActiveTab('schema'); setShowSpecsMenu(false); }}
-                      className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 ${activeTab === 'schema' ? 'bg-amber-500/20 text-amber-300 font-bold' : 'text-slate-300 hover:bg-slate-800'}`}
-                    >
-                      <Database className="w-3.5 h-3.5 text-amber-400" />
-                      Step 3: CSDL & Models
-                    </button>
-                    <button
-                      onClick={() => { setActiveTab('coreservice'); setShowSpecsMenu(false); }}
-                      className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 ${activeTab === 'coreservice' ? 'bg-amber-500/20 text-amber-300 font-bold' : 'text-slate-300 hover:bg-slate-800'}`}
-                    >
-                      <Zap className="w-3.5 h-3.5 text-amber-400" />
-                      Step 4: Core Service
-                    </button>
-                    <button
-                      onClick={() => { setActiveTab('controllers'); setShowSpecsMenu(false); }}
-                      className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 ${activeTab === 'controllers' ? 'bg-amber-500/20 text-amber-300 font-bold' : 'text-slate-300 hover:bg-slate-800'}`}
-                    >
-                      <Layers className="w-3.5 h-3.5 text-amber-400" />
-                      Step 5: Controllers
-                    </button>
-                    <button
-                      onClick={() => { setActiveTab('frontend'); setShowSpecsMenu(false); }}
-                      className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 ${activeTab === 'frontend' ? 'bg-amber-500/20 text-amber-300 font-bold' : 'text-slate-300 hover:bg-slate-800'}`}
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                      Step 6: Blade & Frontend
-                    </button>
-                    <button
-                      onClick={() => { setActiveTab('authtesting'); setShowSpecsMenu(false); }}
-                      className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 ${activeTab === 'authtesting' ? 'bg-amber-500/20 text-amber-300 font-bold' : 'text-slate-300 hover:bg-slate-800'}`}
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                      Step 7: Auth & Testing
-                    </button>
-                  </div>
-                )}
-              </div>
+              <button
+                onClick={() => setActiveTab('readme')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                  activeTab === 'readme'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-lg shadow-amber-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <BookOpen className="w-4 h-4" />
+                Hướng Dẫn (README)
+              </button>
+
             </nav>
 
             {/* Auth / Login Button */}
@@ -408,30 +332,6 @@ export default function App() {
               setIsInstalled(true);
             }}
           />
-        )}
-
-        {activeTab === 'blueprint' && (
-          <Step1Blueprint onNextStep={() => setActiveTab('shortener')} />
-        )}
-
-        {activeTab === 'schema' && (
-          <DatabaseSchemaInspector />
-        )}
-
-        {activeTab === 'coreservice' && (
-          <CoreServiceInspector />
-        )}
-
-        {activeTab === 'controllers' && (
-          <ControllersRepositoriesInspector />
-        )}
-
-        {activeTab === 'frontend' && (
-          <FrontendBladeInspector />
-        )}
-
-        {activeTab === 'authtesting' && (
-          <AuthTestingInspector />
         )}
 
         {activeTab === 'shortener' && (

@@ -13,6 +13,7 @@ import {
   RefreshCw, 
   ExternalLink,
   Edit3,
+  Trash2,
   Globe,
   Tag,
   ShieldAlert,
@@ -60,6 +61,137 @@ export function LinkGeneratorOG({ onLinkCreated }: Props) {
     { label: 'Banner 2: Modern Office', url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80' },
     { label: 'Banner 3: Marketing Growth', url: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=80' }
   ];
+
+  // Additional interactive states
+  const [isScraping, setIsScraping] = useState(false);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [scrapeMsg, setScrapeMsg] = useState('');
+  
+  // Real-time link management state
+  const [allLinks, setAllLinks] = useState<ShortLink[]>([]);
+  const [searchFilter, setSearchFilter] = useState('');
+
+  const fetchAllLinks = async () => {
+    try {
+      const res = await fetch('/api/links');
+      if (res.ok) {
+        const data = await res.json();
+        setAllLinks(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllLinks();
+  }, []);
+
+  // Auto-scrape Open Graph metadata from destination URL
+  const handleScrapeMetadata = async () => {
+    if (!destinationUrl) {
+      setErrorMsg('Vui lòng nhập URL đích trước khi lấy thẻ Meta!');
+      return;
+    }
+    setErrorMsg('');
+    setScrapeMsg('');
+    setIsScraping(true);
+
+    try {
+      const res = await fetch('/api/scrape-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: destinationUrl })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.error || 'Lỗi khi tải thông tin từ URL!');
+        return;
+      }
+
+      if (data.metadata) {
+        if (data.metadata.og_title) setOgTitle(data.metadata.og_title);
+        if (data.metadata.og_description) setOgDescription(data.metadata.og_description);
+        if (data.metadata.og_image) setOgImage(data.metadata.og_image);
+        if (data.metadata.og_site_name) setOgSiteName(data.metadata.og_site_name);
+        if (data.metadata.keywords) setKeywords(data.metadata.keywords);
+        if (data.metadata.author) setAuthor(data.metadata.author);
+        setScrapeMsg('✅ Đã tự động trích xuất thành công thẻ Meta từ website gốc!');
+        setTimeout(() => setScrapeMsg(''), 4000);
+      }
+    } catch (err) {
+      setErrorMsg('Không thể kết nối đến máy chủ để trích xuất thẻ Meta!');
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
+  // AI Generate / Optimize Metadata with Gemini
+  const handleAiEnhanceMetadata = async () => {
+    if (!destinationUrl) {
+      setErrorMsg('Vui lòng nhập URL đích!');
+      return;
+    }
+    setErrorMsg('');
+    setScrapeMsg('');
+    setIsAiGenerating(true);
+
+    try {
+      const res = await fetch('/api/ai/enhance-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destination_url: destinationUrl,
+          title: ogTitle,
+          description: ogDescription
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.error || 'Lỗi khi kết nối với AI Gemini!');
+        return;
+      }
+
+      if (data.metadata) {
+        if (data.metadata.og_title) setOgTitle(data.metadata.og_title);
+        if (data.metadata.og_description) setOgDescription(data.metadata.og_description);
+        if (data.metadata.keywords) setKeywords(data.metadata.keywords);
+        if (data.metadata.twitter_title) setTwitterTitle(data.metadata.twitter_title);
+        if (data.metadata.twitter_description) setTwitterDescription(data.metadata.twitter_description);
+        setScrapeMsg('✨ AI Gemini đã tối ưu tiêu đề & mô tả thu hút lượt click cao!');
+        setTimeout(() => setScrapeMsg(''), 4000);
+      }
+    } catch (err) {
+      setErrorMsg('Không thể kết nối đến Gemini AI!');
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  const handleDeleteLink = async (slug: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa link /r/${slug}?`)) return;
+    try {
+      const res = await fetch(`/api/links/${slug}`, { method: 'DELETE' });
+      if (res.ok) {
+        setAllLinks(prev => prev.filter(l => l.slug !== slug));
+        if (createdLink?.slug === slug) setCreatedLink(null);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleToggleLink = async (slug: string) => {
+    try {
+      const res = await fetch(`/api/links/${slug}/toggle`, { method: 'PATCH' });
+      if (res.ok) {
+        const data = await res.json();
+        setAllLinks(prev => prev.map(l => l.slug === slug ? data.link : l));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const handleCreateLink = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,18 +320,46 @@ export function LinkGeneratorOG({ onLinkCreated }: Props) {
                 </div>
               )}
 
+              {scrapeMsg && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-xl flex items-center gap-2">
+                  <Check className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+                  {scrapeMsg}
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   URL Đích (Destination URL) <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="url"
-                  value={destinationUrl}
-                  onChange={(e) => setDestinationUrl(e.target.value)}
-                  placeholder="https://domain.com/bai-viet-chi-tiet"
-                  required
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-mono text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="url"
+                    value={destinationUrl}
+                    onChange={(e) => setDestinationUrl(e.target.value)}
+                    placeholder="https://domain.com/bai-viet-chi-tiet"
+                    required
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-mono text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleScrapeMetadata}
+                    disabled={isScraping || !destinationUrl}
+                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-400 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 whitespace-nowrap disabled:opacity-50 transition-colors"
+                    title="Tự động trích xuất thẻ Meta từ đường dẫn gốc"
+                  >
+                    {isScraping ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                        Đang lấy...
+                      </>
+                    ) : (
+                      <>
+                        <Globe className="w-3.5 h-3.5" />
+                        Lấy Meta Gốc
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -224,14 +384,30 @@ export function LinkGeneratorOG({ onLinkCreated }: Props) {
 
             {/* Metadata Editor */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-2">
                   <Sliders className="w-4 h-4" />
                   2. Open Graph & Twitter Cards Metadata Editor
                 </h3>
-                <span className="text-[11px] px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded font-semibold">
-                  Tự động Render cho Bot/Crawler
-                </span>
+                <button
+                  type="button"
+                  onClick={handleAiEnhanceMetadata}
+                  disabled={isAiGenerating || !destinationUrl}
+                  className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                  title="Sử dụng Gemini AI để tạo Tiêu đề & Mô tả Viral tăng tỷ lệ click (CTR)"
+                >
+                  {isAiGenerating ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      AI Đang viết...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Tối Ưu Với AI Gemini
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* OG Title */}
@@ -563,6 +739,144 @@ export function LinkGeneratorOG({ onLinkCreated }: Props) {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Real-time Link Management Table Section */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <LinkIcon className="w-5 h-5 text-amber-500" />
+              Danh Sách Link Đã Tạo Trong Hệ Thống ({allLinks.length})
+            </h3>
+            <p className="text-xs text-slate-500">
+              Quản lý trực tiếp, bật/tắt kích hoạt, test redirect hoặc xóa link
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <input
+              type="text"
+              placeholder="Tìm kiếm slug, tiêu đề..."
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500 w-full sm:w-64"
+            />
+            <button
+              onClick={fetchAllLinks}
+              className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs flex items-center gap-1 shrink-0 cursor-pointer"
+              title="Tải lại danh sách"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase text-[10px] font-mono">
+              <tr>
+                <th className="p-3">Short Link</th>
+                <th className="p-3">URL Đích</th>
+                <th className="p-3">Tiêu Đề OG</th>
+                <th className="p-3 text-center">Clicks / Bots</th>
+                <th className="p-3 text-center">Trạng Thái</th>
+                <th className="p-3 text-right">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {allLinks
+                .filter(l => 
+                  !searchFilter || 
+                  l.slug.toLowerCase().includes(searchFilter.toLowerCase()) || 
+                  l.destination_url.toLowerCase().includes(searchFilter.toLowerCase()) ||
+                  (l.metadata && l.metadata.og_title && l.metadata.og_title.toLowerCase().includes(searchFilter.toLowerCase()))
+                )
+                .map((link) => {
+                  const fullUrl = `${window.location.origin}/r/${link.slug}`;
+                  return (
+                    <tr key={link.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="p-3 font-mono font-bold text-amber-500 whitespace-nowrap">
+                        /r/{link.slug}
+                      </td>
+                      <td className="p-3 text-slate-600 dark:text-slate-300 font-mono text-[11px] max-w-xs truncate">
+                        {link.destination_url}
+                      </td>
+                      <td className="p-3 text-slate-900 dark:text-slate-100 font-medium max-w-xs truncate">
+                        {link.metadata?.og_title || 'N/A'}
+                      </td>
+                      <td className="p-3 text-center whitespace-nowrap font-mono">
+                        <span className="text-emerald-400 font-bold">{link.clicks_count}</span>
+                        <span className="text-slate-500 mx-1">/</span>
+                        <span className="text-sky-400 font-bold">{link.bot_views_count}</span>
+                      </td>
+                      <td className="p-3 text-center whitespace-nowrap">
+                        <button
+                          onClick={() => handleToggleLink(link.slug)}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors cursor-pointer ${
+                            link.is_active
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                          }`}
+                        >
+                          {link.is_active ? '● Hoạt động' : '○ Tắt'}
+                        </button>
+                      </td>
+                      <td className="p-3 text-right whitespace-nowrap space-x-1.5">
+                        <button
+                          onClick={() => copyToClipboard(fullUrl)}
+                          className="p-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs cursor-pointer"
+                          title="Sao chép link"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                        <a
+                          href={fullUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 inline-block bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-amber-500 rounded-lg text-xs"
+                          title="Mở dùng thử link"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                        <button
+                          onClick={() => {
+                            setDestinationUrl(link.destination_url);
+                            setCustomSlug(link.slug);
+                            if (link.metadata) {
+                              setOgTitle(link.metadata.og_title || '');
+                              setOgDescription(link.metadata.og_description || '');
+                              setOgImage(link.metadata.og_image || '');
+                              setOgSiteName(link.metadata.og_site_name || '');
+                            }
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="p-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-blue-400 rounded-lg text-xs cursor-pointer"
+                          title="Chỉnh sửa link"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteLink(link.slug)}
+                          className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg text-xs cursor-pointer"
+                          title="Xóa link"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              {allLinks.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                    Chưa có link nào trong hệ thống. Hãy điền form phía trên để tạo short link đầu tiên!
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
